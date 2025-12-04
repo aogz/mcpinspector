@@ -6,6 +6,8 @@ import {
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { findActualExecutable } from "spawn-rx";
+import https from "node:https";
+import nodeFetch from "node-fetch";
 
 export type TransportOptions = {
   transportType: "sse" | "stdio" | "http";
@@ -13,6 +15,7 @@ export type TransportOptions = {
   args?: string[];
   url?: string;
   headers?: Record<string, string>;
+  disableSSLVerification?: boolean;
 };
 
 function createStdioTransport(options: TransportOptions): Transport {
@@ -64,25 +67,63 @@ export function createTransport(options: TransportOptions): Transport {
     }
     const url = new URL(options.url);
 
-    if (transportType === "sse") {
-      const transportOptions = options.headers
-        ? {
-            requestInit: {
-              headers: options.headers,
-            },
+    // Create HTTPS agent with SSL verification disabled if requested
+    const httpsAgent = options.disableSSLVerification
+      ? new https.Agent({
+          rejectUnauthorized: false,
+        })
+      : undefined;
+
+    // Create custom fetch function if SSL verification is disabled
+    const createCustomFetch = (httpsAgent?: https.Agent) => {
+      if (!httpsAgent) {
+        return undefined;
+      }
+      return async (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const fetchOptions: any = { ...init };
+        fetchOptions.agent = (url: URL) => {
+          if (url.protocol === "https:") {
+            return httpsAgent;
           }
-        : undefined;
+          return undefined;
+        };
+        return (await nodeFetch(
+          input as any,
+          fetchOptions,
+        )) as unknown as Response;
+      };
+    };
+
+    if (transportType === "sse") {
+      const customFetch = createCustomFetch(httpsAgent);
+      const transportOptions: any = {};
+      if (options.headers) {
+        transportOptions.requestInit = {
+          headers: options.headers,
+        };
+      }
+      if (customFetch) {
+        transportOptions.eventSourceInit = {
+          fetch: customFetch,
+        };
+      }
       return new SSEClientTransport(url, transportOptions);
     }
 
     if (transportType === "http") {
-      const transportOptions = options.headers
-        ? {
-            requestInit: {
-              headers: options.headers,
-            },
-          }
-        : undefined;
+      const customFetch = createCustomFetch(httpsAgent);
+      const transportOptions: any = {};
+      if (options.headers) {
+        transportOptions.requestInit = {
+          headers: options.headers,
+        };
+      }
+      if (customFetch) {
+        transportOptions.fetch = customFetch;
+      }
       return new StreamableHTTPClientTransport(url, transportOptions);
     }
 
