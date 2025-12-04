@@ -63,6 +63,8 @@ describe("Sidebar", () => {
     setConfig: jest.fn(),
     connectionType: "proxy" as const,
     setConnectionType: jest.fn(),
+    disableSSLVerification: false,
+    setDisableSSLVerification: jest.fn(),
   };
 
   const renderSidebar = (props = {}) => {

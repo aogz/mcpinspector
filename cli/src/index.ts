@@ -45,12 +45,14 @@ type Args = {
   transport?: "sse" | "stdio" | "http";
   headers?: Record<string, string>;
   metadata?: Record<string, string>;
+  disableSSLVerification?: boolean;
 };
 
 function createTransportOptions(
   target: string[],
   transport?: "sse" | "stdio" | "http",
   headers?: Record<string, string>,
+  disableSSLVerification?: boolean,
 ): TransportOptions {
   if (target.length === 0) {
     throw new Error(
@@ -98,6 +100,7 @@ function createTransportOptions(
     args: isUrl ? undefined : commandArgs,
     url: isUrl ? command : undefined,
     headers,
+    disableSSLVerification,
   };
 }
 
@@ -115,6 +118,7 @@ async function callMethod(args: Args): Promise<void> {
     args.target,
     args.transport,
     args.headers,
+    args.disableSSLVerification,
   );
   const transport = createTransport(transportOptions);
 
@@ -343,6 +347,14 @@ function parseArgs(): Args {
       {},
     )
     //
+    // SSL verification
+    //
+    .option(
+      "--disable-ssl-verification",
+      "Disable SSL certificate verification (not recommended for production)",
+      false,
+    )
+    //
     // Metadata options
     //
     .option(
@@ -365,6 +377,7 @@ function parseArgs(): Args {
     header?: Record<string, string>;
     metadata?: Record<string, JsonValue>;
     toolMetadata?: Record<string, JsonValue>;
+    disableSslVerification?: boolean;
   };
 
   let remainingArgs = program.args;
@@ -382,6 +395,7 @@ function parseArgs(): Args {
     target: finalArgs,
     ...options,
     headers: options.header, // commander.js uses 'header' field, map to 'headers'
+    disableSSLVerification: options.disableSslVerification, // commander.js uses kebab-case, map to camelCase
     metadata: options.metadata
       ? Object.fromEntries(
           Object.entries(options.metadata).map(([key, value]) => [

@@ -3,6 +3,7 @@
 import cors from "cors";
 import { parseArgs } from "node:util";
 import { parse as shellParseArgs } from "shell-quote";
+import https from "node:https";
 import nodeFetch, { Headers as NodeHeaders } from "node-fetch";
 
 // Type-compatible wrappers for node-fetch to work with browser-style types
@@ -275,7 +276,16 @@ const createWebReadableStream = (nodeStream: any): ReadableStream => {
  * `Content-Type` are preserved. For SSE requests, it also converts Node.js
  * streams to web-compatible streams.
  */
-const createCustomFetch = (headerHolder: { headers: HeadersInit }) => {
+const createCustomFetch = (
+  headerHolder: { headers: HeadersInit },
+  disableSSLVerification: boolean = false,
+) => {
+  // Create HTTPS agent with SSL verification disabled if requested
+  const httpsAgent = disableSSLVerification
+    ? new https.Agent({
+        rejectUnauthorized: false,
+      })
+    : undefined;
   return async (
     input: RequestInfo | URL,
     init?: RequestInit,
@@ -301,10 +311,17 @@ const createCustomFetch = (headerHolder: { headers: HeadersInit }) => {
     });
 
     // Get the response from node-fetch (cast input and init to handle type differences)
-    const response = await fetch(
-      input as any,
-      { ...init, headers: headersObject } as any,
-    );
+    // Use HTTPS agent if SSL verification is disabled
+    const fetchOptions: any = { ...init, headers: headersObject };
+    if (httpsAgent) {
+      fetchOptions.agent = (url: URL) => {
+        if (url.protocol === "https:") {
+          return httpsAgent;
+        }
+        return undefined;
+      };
+    }
+    const response = await fetch(input as any, fetchOptions);
 
     // Check if this is an SSE request by looking at the Accept header
     const acceptHeader = finalHeaders.get("Accept");
@@ -366,18 +383,20 @@ const createTransport = async (
     return { transport };
   } else if (transportType === "sse") {
     const url = query.url as string;
+    const disableSSLVerification =
+      query.disableSSLVerification === "true" || false;
 
     const headers = getHttpHeaders(req);
     headers["Accept"] = "text/event-stream";
     const headerHolder = { headers };
 
     console.log(
-      `SSE transport: url=${url}, headers=${JSON.stringify(headers)}`,
+      `SSE transport: url=${url}, headers=${JSON.stringify(headers)}, disableSSLVerification=${disableSSLVerification}`,
     );
 
     const transport = new SSEClientTransport(new URL(url), {
       eventSourceInit: {
-        fetch: createCustomFetch(headerHolder),
+        fetch: createCustomFetch(headerHolder, disableSSLVerification),
       },
       requestInit: {
         headers: headerHolder.headers,
@@ -386,6 +405,8 @@ const createTransport = async (
     await transport.start();
     return { transport, headerHolder };
   } else if (transportType === "streamable-http") {
+    const disableSSLVerification =
+      query.disableSSLVerification === "true" || false;
     const headers = getHttpHeaders(req);
     headers["Accept"] = "text/event-stream, application/json";
     const headerHolder = { headers };
@@ -394,7 +415,7 @@ const createTransport = async (
       new URL(query.url as string),
       {
         // Pass a custom fetch to inject the latest headers on each request
-        fetch: createCustomFetch(headerHolder),
+        fetch: createCustomFetch(headerHolder, disableSSLVerification),
       },
     );
     await transport.start();

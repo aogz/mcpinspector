@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import CustomHeaders from "./CustomHeaders";
 import { CustomHeaders as CustomHeadersType } from "@/lib/types/customHeaders";
 import { useToast } from "../lib/hooks/useToast";
@@ -73,6 +74,8 @@ interface SidebarProps {
   setConfig: (config: InspectorConfig) => void;
   connectionType: "direct" | "proxy";
   setConnectionType: (type: "direct" | "proxy") => void;
+  disableSSLVerification: boolean;
+  setDisableSSLVerification: (value: boolean) => void;
   serverImplementation?:
     | (WithIcons & { name?: string; version?: string; websiteUrl?: string })
     | null;
@@ -107,6 +110,8 @@ const Sidebar = ({
   setConfig,
   connectionType,
   setConnectionType,
+  disableSSLVerification,
+  setDisableSSLVerification,
   serverImplementation,
 }: SidebarProps) => {
   const [theme, setTheme] = useTheme();
@@ -358,6 +363,31 @@ const Sidebar = ({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>{connectionTypeTip}</TooltipContent>
+              </Tooltip>
+
+              {/* SSL Verification toggle - only visible for non-STDIO transport types */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="disable-ssl-verification"
+                      checked={disableSSLVerification}
+                      onCheckedChange={(checked) =>
+                        setDisableSSLVerification(checked === true)
+                      }
+                    />
+                    <label
+                      htmlFor="disable-ssl-verification"
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Disable SSL Verification
+                    </label>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Disable SSL certificate verification (not recommended for
+                  production)
+                </TooltipContent>
               </Tooltip>
             </>
           )}

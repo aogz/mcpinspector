@@ -78,6 +78,7 @@ interface UseConnectionOptions {
   oauthScope?: string;
   config: InspectorConfig;
   connectionType?: "direct" | "proxy";
+  disableSSLVerification?: boolean;
   onNotification?: (notification: Notification) => void;
   onStdErrNotification?: (notification: Notification) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,6 +104,7 @@ export function useConnection({
   oauthScope,
   config,
   connectionType = "proxy",
+  disableSSLVerification = false,
   onNotification,
   onPendingRequest,
   onElicitationRequest,
@@ -607,6 +609,12 @@ export function useConnection({
                 proxyFullAddress,
               );
             }
+            if (disableSSLVerification) {
+              mcpProxyServerUrl.searchParams.append(
+                "disableSSLVerification",
+                "true",
+              );
+            }
             transportOptions = {
               authProvider: serverAuthProvider,
               eventSourceInit: {
@@ -638,6 +646,12 @@ export function useConnection({
                 proxyFullAddressSSE,
               );
             }
+            if (disableSSLVerification) {
+              mcpProxyServerUrl.searchParams.append(
+                "disableSSLVerification",
+                "true",
+              );
+            }
             transportOptions = {
               eventSourceInit: {
                 fetch: (
@@ -659,6 +673,12 @@ export function useConnection({
           case "streamable-http":
             mcpProxyServerUrl = new URL(`${getMCPProxyAddress(config)}/mcp`);
             mcpProxyServerUrl.searchParams.append("url", sseUrl);
+            if (disableSSLVerification) {
+              mcpProxyServerUrl.searchParams.append(
+                "disableSSLVerification",
+                "true",
+              );
+            }
             transportOptions = {
               eventSourceInit: {
                 fetch: (

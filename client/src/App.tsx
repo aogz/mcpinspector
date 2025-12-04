@@ -146,6 +146,12 @@ const App = () => {
       );
     },
   );
+  const [disableSSLVerification, setDisableSSLVerification] = useState<boolean>(
+    () => {
+      const saved = localStorage.getItem("lastDisableSSLVerification");
+      return saved === "true";
+    },
+  );
   const [logLevel, setLogLevel] = useState<LoggingLevel>("debug");
   const [notifications, setNotifications] = useState<ServerNotification[]>([]);
   const [roots, setRoots] = useState<Root[]>([]);
@@ -322,6 +328,7 @@ const App = () => {
     oauthScope,
     config,
     connectionType,
+    disableSSLVerification,
     onNotification: (notification) => {
       setNotifications((prev) => [...prev, notification as ServerNotification]);
     },
@@ -410,6 +417,13 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem("lastConnectionType", connectionType);
   }, [connectionType]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "lastDisableSSLVerification",
+      disableSSLVerification.toString(),
+    );
+  }, [disableSSLVerification]);
 
   useEffect(() => {
     if (bearerToken) {
@@ -983,6 +997,8 @@ const App = () => {
           loggingSupported={!!serverCapabilities?.logging || false}
           connectionType={connectionType}
           setConnectionType={setConnectionType}
+          disableSSLVerification={disableSSLVerification}
+          setDisableSSLVerification={setDisableSSLVerification}
           serverImplementation={serverImplementation}
         />
         <div
